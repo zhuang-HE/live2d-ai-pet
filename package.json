@@ -1,0 +1,29 @@
+{
+  "name": "hermes-pet",
+  "version": "3.0.0",
+  "description": "Hermes Desktop Pet - Live2D AI Companion with LLM backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "electron": "electron .",
+    "build": "electron-builder"
+  },
+  "keywords": [
+    "live2d",
+    "ai-assistant",
+    "desktop-pet",
+    "hermes"
+  ],
+  "author": "Hermes Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.22.2",
+    "ws": "^8.20.1"
+  },
+  "devDependencies": {
+    "electron": "^28.3.3",
+    "electron-builder": "^24.9.0",
+    "electron-store": "^8.1.0"
+  }
+}

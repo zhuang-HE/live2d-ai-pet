@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Live2D Test</title>
+  <style>
+    body { margin: 0; background: #1a1a2e; color: #ccc; font-family: sans-serif; }
+    #log { position: fixed; bottom: 0; left: 0; right: 0; height: 120px; background: rgba(0,0,0,0.8); padding: 10px; overflow-y: auto; font-size: 12px; font-family: monospace; }
+    .ok { color: #4ade80; } .err { color: #f87171; } .warn { color: #fbbf24; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="log"></div>
+
+  <!-- 关键：按顺序加载 -->
+  <script src="/assets/js/pixi.min.js" onerror="document.getElementById('log').innerHTML+='<span class=err>❌ pixi.min.js 加载失败!</span><br>'" onload="document.getElementById('log').innerHTML+='<span class=ok>pixi.min.js 加载完成</span><br>'"></script>
+  <script src="/assets/js/live2dcubismcore.min.js" onerror="document.getElementById('log').innerHTML+='<span class=err>❌ live2dcubismcore.min.js 加载失败!</span><br>'" onload="document.getElementById('log').innerHTML+='<span class=ok>live2dcubismcore.min.js 加载完成</span><br>'"></script>
+  <script src="/assets/js/pixi-live2d-display.min.js" onerror="document.getElementById('log').innerHTML+='<span class=err>❌ pixi-live2d-display.min.js 加载失败!</span><br>'" onload="document.getElementById('log').innerHTML+='<span class=ok>pixi-live2d-display.min.js 加载完成</span><br>'"></script>
+
+  <script>
+    const log = document.getElementById('log');
+    function L(msg, cls) {
+      log.innerHTML += `<span class="${cls||''}">${msg}</span><br>`;
+      log.scrollTop = log.scrollHeight;
+      console.log(msg);
+    }
+
+    L('=== Live2D 加载链路测试 ===', 'warn');
+
+    // Step 1: 检查 PIXI
+    if (typeof PIXI !== 'undefined') {
+      L('✅ PIXI 已加载, 版本: ' + PIXI.VERSION, 'ok');
+    } else {
+      L('❌ PIXI 未加载!', 'err');
+    }
+
+    // Step 2: 检查 Live2DCubismCore
+    if (typeof Live2DCubismCore !== 'undefined') {
+      L('✅ Live2DCubismCore 已加载', 'ok');
+    } else {
+      L('❌ Live2DCubismCore 未加载!', 'err');
+    }
+
+    // Step 3: 检查 PIXI.live2d
+    if (PIXI && PIXI.live2d) {
+      L('✅ PIXI.live2d 已挂载', 'ok');
+    } else {
+      L('❌ PIXI.live2d 未挂载! PIXI.live2d = ' + typeof (PIXI ? PIXI.live2d : undefined), 'err');
+    }
+
+    // Step 4: 创建 PIXI Application
+    const canvas = document.getElementById('canvas');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let app;
+    try {
+      app = new PIXI.Application({
+        view: canvas,
+        width: window.innerWidth,
+        height: window.innerHeight,
+        backgroundAlpha: 0,
+        antialias: true,
+      });
+      L('✅ PIXI Application 创建成功', 'ok');
+    } catch (e) {
+      L('❌ PIXI Application 创建失败: ' + e.message, 'err');
+    }
+
+    // Step 5: 加载模型
+    const MODEL_URL = '/assets/models/Hiyori/Hiyori.model3.json';
+    L('🔄 正在加载模型: ' + MODEL_URL, 'warn');
+
+    // 预检
+    fetch(MODEL_URL)
+      .then(r => {
+        if (r.ok) {
+          L('✅ 模型文件可访问 (HTTP ' + r.status + ')', 'ok');
+          return r.json();
+        } else {
+          throw new Error('HTTP ' + r.status);
+        }
+      })
+      .then(json => {
+        L('📋 JSON Version: ' + json.Version + ', Moc: ' + json.FileReferences.Moc, 'ok');
+        
+        // 加载真实模型
+        return PIXI.live2d.Live2DModel.from(MODEL_URL);
+      })
+      .then(model => {
+        L('✅ Live2D 模型加载成功! ' + model.width + 'x' + model.height, 'ok');
+        
+        const scale = Math.min(
+          app.renderer.width / model.width,
+          app.renderer.height / model.height
+        ) * 0.55;
+        model.scale.set(scale);
+        model.x = app.renderer.width / 2;
+        model.y = app.renderer.height * 0.42;
+        model.anchor.set(0.5, 0.5);
+        model.interactive = true;
+        
+        app.stage.addChild(model);
+        L('✅ 模型已添加到舞台, 缩放: ' + scale.toFixed(3), 'ok');
+      })
+      .catch(err => {
+        L('❌ 模型加载失败: ' + err.message, 'err');
+        // 尝试 Cubism 2 格式
+        const c2url = '/assets/models/006/006.model.json';
+        L('🔄 尝试 Cubism 2: ' + c2url, 'warn');
+        return PIXI.live2d.Live2DModel.from(c2url);
+      })
+      .then(model2 => {
+        if (model2 && !model2.destroyed) {
+          L('✅ Cubism 2 模型加载成功!', 'ok');
+          const scale = Math.min(
+            app.renderer.width / model2.width,
+            app.renderer.height / model2.height
+          ) * 0.55;
+          model2.scale.set(scale);
+          model2.x = app.renderer.width / 2;
+          model2.y = app.renderer.height * 0.42;
+          model2.anchor.set(0.5, 0.5);
+          app.stage.addChild(model2);
+          L('✅ Cubism 2 模型已添加', 'ok');
+        }
+      })
+      .catch(err2 => {
+        L('❌ 所有模型格式均失败: ' + err2.message, 'err');
+      });
+
+    window.addEventListener('resize', () => {
+      if (app) app.renderer.resize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>

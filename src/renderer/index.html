@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hermes Pet</title>
+  <style>
+    /* ============================================
+       Hermes Pet v3 - 暖阳橙 + 柔和紫 设计系统
+       ============================================ */
+    :root {
+      --primary: #FF8C42;
+      --primary-light: #FFB07A;
+      --primary-dark: #E06A1F;
+      --secondary: #A78BFA;
+      --bg-main: rgba(20, 20, 30, 0.75);
+      --bg-card: rgba(30, 30, 45, 0.92);
+      --bg-input: rgba(255, 255, 255, 0.08);
+      --text-primary: #F0EDF5;
+      --text-secondary: #A09BB5;
+      --border: rgba(167, 139, 250, 0.2);
+      --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+      --radius: 16px;
+      --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      --ease-bounce: cubic-bezier(0.68, -0.55, 0.27, 1.55);
+
+      /* 6 情绪状态色 */
+      --emotion-idle: #A78BFA;
+      --emotion-speaking: #FF8C42;
+      --emotion-thinking: #60A5FA;
+      --emotion-happy: #FBBF24;
+      --emotion-shy: #F472B6;
+      --emotion-surprised: #34D399;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      background: transparent;
+      user-select: none;
+      -webkit-app-region: no-drag;
+    }
+
+    /* ============================================
+       Live2D 画布层
+       ============================================ */
+    #live2d-canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* ============================================
+       对话框气泡
+       ============================================ */
+    #dialog-bubble {
+      position: absolute;
+      bottom: 130px;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: 340px;
+      min-width: 200px;
+      padding: 12px 18px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-primary);
+      font-size: 14px;
+      line-height: 1.6;
+      box-shadow: var(--shadow);
+      z-index: 10;
+      opacity: 0;
+      transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-bounce);
+      pointer-events: none;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    #dialog-bubble.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #dialog-bubble::after {
+      content: '';
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0; height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-top: 8px solid var(--bg-card);
+    }
+    #dialog-text {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    #dialog-text .typing-cursor {
+      display: inline-block;
+      width: 2px;
+      height: 16px;
+      background: var(--primary);
+      margin-left: 2px;
+      animation: blink 0.8s infinite;
+    }
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+
+    /* ============================================
+       底部控制栏
+       ============================================ */
+    #control-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 120px;
+      z-index: 10;
+      -webkit-app-region: no-drag;
+      display: flex;
+      flex-direction: column;
+      pointer-events: none;
+    }
+    #control-bar > * {
+      pointer-events: auto;
+    }
+
+    /* 拖拽区域 */
+    #drag-handle {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 28px;
+      z-index: 20;
+      -webkit-app-region: drag;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      padding: 0 8px;
+    }
+    #drag-handle .btn {
+      -webkit-app-region: no-drag;
+    }
+
+    /* 窗口控制按钮 */
+    .window-btn {
+      width: 24px; height: 24px;
+      border: none;
+      background: rgba(255,255,255,0.06);
+      color: var(--text-secondary);
+      font-size: 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 4px;
+      transition: all 0.2s;
+    }
+    .window-btn:hover {
+      background: rgba(255,255,255,0.15);
+      color: var(--text-primary);
+    }
+    .window-btn.close:hover {
+      background: #E53E3E;
+      color: white;
+    }
+
+    /* 输入区域 */
+    #input-area {
+      position: absolute;
+      bottom: 8px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 6px 8px 6px 16px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    #message-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-size: 13px;
+      outline: none;
+      min-width: 0;
+      font-family: inherit;
+    }
+    #message-input::placeholder {
+      color: var(--text-secondary);
+    }
+    #send-btn, #mic-btn {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    #send-btn {
+      background: var(--primary);
+      color: white;
+    }
+    #send-btn:hover { background: var(--primary-dark); }
+    #send-btn:disabled { background: rgba(255,140,66,0.3); cursor: not-allowed; }
+    #mic-btn {
+      background: rgba(255,255,255,0.08);
+      color: var(--text-secondary);
+    }
+    #mic-btn:hover { background: rgba(255,255,255,0.15); color: var(--text-primary); }
+    #mic-btn.recording {
+      background: #E53E3E;
+      color: white;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.5); }
+      50% { box-shadow: 0 0 0 10px rgba(229, 62, 62, 0); }
+    }
+
+    /* 状态指示器 */
+    #status-bar {
+      position: absolute;
+      top: 8px;
+      right: 40px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      z-index: 20;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--text-secondary);
+      transition: background 0.3s;
+    }
+    .status-dot.connected { background: #34D399; }
+    .status-dot.disconnected { background: #E53E3E; }
+    .status-dot.thinking { background: #60A5FA; animation: pulse 1s infinite; }
+    .status-text {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    /* ============================================
+       设置面板
+       ============================================ */
+    #settings-panel {
+      position: absolute;
+      top: 40px;
+      right: 12px;
+      width: 300px;
+      max-height: 440px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      z-index: 30;
+      box-shadow: var(--shadow);
+      display: none;
+      overflow-y: auto;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    #settings-panel.open { display: block; }
+    #settings-panel h3 {
+      font-size: 16px;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    .setting-group {
+      margin-bottom: 14px;
+    }
+    .setting-group label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .setting-group input[type="text"],
+    .setting-group select {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 13px;
+      outline: none;
+      font-family: inherit;
+    }
+    .setting-group input[type="text"]:focus,
+    .setting-group select:focus {
+      border-color: var(--primary);
+    }
+    .setting-group input[type="range"] {
+      width: 100%;
+      accent-color: var(--primary);
+    }
+    .setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+    }
+    .setting-row span {
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+    .toggle {
+      width: 40px; height: 22px;
+      border-radius: 11px;
+      background: rgba(255,255,255,0.15);
+      cursor: pointer;
+      position: relative;
+      transition: background 0.2s;
+    }
+    .toggle.active {
+      background: var(--primary);
+    }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px; left: 2px;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: white;
+      transition: transform 0.2s;
+    }
+    .toggle.active::after {
+      transform: translateX(18px);
+    }
+    #settings-close {
+      position: absolute;
+      top: 12px; right: 12px;
+      width: 24px; height: 24px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 18px;
+    }
+    #settings-close:hover { color: var(--text-primary); }
+
+    /* ============================================
+       粒子系统容器
+       ============================================ */
+    #particles {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    /* ============================================
+       滚动条
+       ============================================ */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(167, 139, 250, 0.3); border-radius: 2px; }
+
+    /* ============================================
+       无连接提示
+       ============================================ */
+    #no-connection {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: var(--text-secondary);
+      z-index: 5;
+      display: none;
+    }
+    #no-connection.visible { display: block; }
+    #no-connection .icon { font-size: 48px; margin-bottom: 12px; }
+    #no-connection p { font-size: 14px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+
+  <!-- 拖拽手柄 -->
+  <div id="drag-handle">
+    <button class="window-btn" id="btn-settings" title="设置">&#9881;</button>
+    <button class="window-btn" id="btn-minimize" title="最小化">&#9866;</button>
+    <button class="window-btn close" id="btn-close" title="关闭">&#10005;</button>
+  </div>
+
+  <!-- 状态指示器 -->
+  <div id="status-bar">
+    <div class="status-dot disconnected" id="status-dot"></div>
+    <span class="status-text" id="status-text">未连接</span>
+  </div>
+
+  <!-- Live2D 画布 -->
+  <canvas id="live2d-canvas"></canvas>
+
+  <!-- 粒子层 -->
+  <div id="particles"></div>
+
+  <!-- 无连接提示（PIXI 加载失败时显示） -->
+  <div id="no-connection">
+    <div class="icon">&#129302;</div>
+    <p>正在初始化 Live2D 引擎…</p>
+    <p style="font-size:12px;opacity:0.6;">如长时间无响应，请检查网络或模型文件</p>
+  </div>
+
+  <!-- 对话框 -->
+  <div id="dialog-bubble">
+    <div id="dialog-text"></div>
+  </div>
+
+  <!-- 底部控制栏 -->
+  <div id="control-bar">
+    <div id="input-area">
+      <button id="mic-btn" title="语音输入">&#127908;</button>
+      <input type="text" id="message-input" placeholder="和 Hermes 说点什么…" maxlength="500">
+      <button id="send-btn" disabled>&#10148;</button>
+    </div>
+  </div>
+
+  <!-- 设置面板 -->
+  <div id="settings-panel">
+    <button id="settings-close">&#10005;</button>
+    <h3>&#9881; 设置</h3>
+    <div class="setting-group">
+      <label>Ollama 服务地址</label>
+      <input type="text" id="setting-ollama-host" value="http://localhost:11434">
+    </div>
+    <div class="setting-group">
+      <label>模型</label>
+      <select id="setting-model">
+        <option value="qwen2.5:7b">qwen2.5:7b</option>
+        <option value="qwen2.5:3b">qwen2.5:3b</option>
+        <option value="qwen2.5:1.5b">qwen2.5:1.5b</option>
+        <option value="qwen3:4b">qwen3:4b</option>
+      </select>
+    </div>
+    <div class="setting-group">
+      <label>透明度</label>
+      <input type="range" id="setting-opacity" min="30" max="100" value="95">
+    </div>
+    <div class="setting-row">
+      <span>始终置顶</span>
+      <div class="toggle active" id="setting-always-on-top"></div>
+    </div>
+    <div class="setting-row">
+      <span>TTS 语音</span>
+      <div class="toggle active" id="setting-tts"></div>
+    </div>
+    <div class="setting-row">
+      <span>STT 语音输入</span>
+      <div class="toggle active" id="setting-stt"></div>
+    </div>
+    <div class="setting-row">
+      <span>Live2D 模型</span>
+      <select id="setting-live2d-model" style="width:120px;padding:4px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:12px;">
+        <option value="Hiyori">Hiyori</option>
+        <option value="006">006</option>
+        <option value="007">007</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- 依赖库 -->
+  <script src="/assets/js/pixi.min.js"></script>
+  <script src="/assets/js/live2dcubismcore.min.js"></script>
+  <script src="/assets/js/pixi-live2d-display.min.js"></script>
+  <script src="/src/renderer/app.js?v=4"></script>
+</body>
+</html>
