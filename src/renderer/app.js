@@ -112,7 +112,7 @@ const VoiceDB = {
 
   preload(name) {
     if (STATE.audioCache[name]) return;
-    const audio = new Audio(`/assets/audio/${name}.wav`);
+    const audio = new Audio(`/assets/audio/${name}.mp3`);
     audio.preload = 'auto';
     STATE.audioCache[name] = audio;
   },
