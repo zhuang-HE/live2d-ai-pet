@@ -108,6 +108,7 @@ const VoiceDB = {
     '咱在听呢… (竖起耳朵)': 'stt_listening',
     '没听清楚呢…要不打字试试？ (・ω・)': 'stt_error',
     '语音输入未开启，请在设置中启用 (・ω・)': 'stt_disabled',
+    '语音识别不可用 (´;ω;`)': 'stt_unavailable',
   },
 
   preload(name) {
