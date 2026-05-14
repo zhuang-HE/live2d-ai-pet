@@ -1,7 +1,7 @@
 {
-  "name": "hermes-pet",
+  "name": "live2d-ai-pet",
   "version": "3.0.0",
-  "description": "Hermes Desktop Pet - Live2D AI Companion with LLM backend",
+  "description": "Live2D AI Pet - 桌面 AI 伙伴，PIXI.js + Live2D + Ollama 大模型驱动",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
