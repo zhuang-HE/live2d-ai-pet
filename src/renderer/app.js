@@ -83,9 +83,60 @@ const STATE = {
   cachedVoices: [],
   settingsOpen: false,
   currentModelName: localStorage.getItem('hermes-live2d-model') || 'Hiyori',
+  audioCache: {},
 };
 
 const DOM = {};
+
+// ============================================
+// 内置语音播放系统
+// ============================================
+const VoiceDB = {
+  // 台词文本 → 音频文件 映射
+  map: {
+    '赫赫在呢！有什么可以帮你的？ (≧∇≦)ﾉ': 'greeting_01',
+    '嗨嗨~ 咱在这里！✨': 'greeting_02',
+    '啊，被召唤了！有什么吩咐？(〃\'▽\'〃)': 'greeting_03',
+    '嘿嘿，终于有人理咱了~ 要聊点什么呢？': 'greeting_04',
+    '来啦来啦！今天也是元气满满的一天！☀️': 'greeting_05',
+    '诶嘿~ (〃\'▽\'〃)': 'drag_01',
+    '唔…咱好像连不上 AI 大脑了 (´;ω;`) 检查一下 Ollama 是不是在运行？': 'error_ollama',
+    '好安静呢…大家是不是都在忙？(´-ω-`)': 'idle_01',
+    '咱在发呆中…Zzz…啊！没有睡着啦！': 'idle_02',
+    '要不要聊聊天？咱知道很多有趣的事哦 ✨': 'idle_03',
+    '（无聊地转圈圈）…转~转~转~': 'idle_04',
+    '咱在听呢… (竖起耳朵)': 'stt_listening',
+    '没听清楚呢…要不打字试试？ (・ω・)': 'stt_error',
+    '语音输入未开启，请在设置中启用 (・ω・)': 'stt_disabled',
+  },
+
+  preload(name) {
+    if (STATE.audioCache[name]) return;
+    const audio = new Audio(`/assets/audio/${name}.wav`);
+    audio.preload = 'auto';
+    STATE.audioCache[name] = audio;
+  },
+
+  playByText(text) {
+    const name = this.map[text];
+    if (!name) return false;
+    
+    if (!STATE.audioCache[name]) {
+      this.preload(name);
+    }
+    
+    const audio = STATE.audioCache[name];
+    if (audio) {
+      audio.currentTime = 0;
+      audio.play().catch(e => console.warn('Voice play skipped:', e.message));
+    }
+    return true;
+  },
+
+  preloadAll() {
+    Object.values(this.map).forEach(name => this.preload(name));
+  }
+};
 
 // ============================================
 // 初始化
@@ -94,6 +145,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   cacheDOM();
   bindEvents();
   preloadVoices();
+  VoiceDB.preloadAll();
   const pixiOk = await initPIXI();
   if (!pixiOk) return;
   await loadLive2DModel(STATE.currentModelName);
@@ -513,6 +565,8 @@ function showDialog(text, autoHide = true) {
   clearTypingInterval();
   DOM.dialogBubble.classList.add('visible');
   DOM.dialogText.textContent = text;
+  // 内置台词 → 播放预录制语音
+  VoiceDB.playByText(text);
   if (autoHide) {
     setTimeout(() => {
       if (!STATE.isSpeaking && !STATE.isThinking) {
